@@ -84,6 +84,7 @@ var tabdefs = [
   require('../tabs/security'),
   require('../tabs/tx'),
   require('../tabs/fund'),
+  require('../tabs/buy'),
   require('../tabs/withdraw'),
   require('../tabs/eula'),
 
