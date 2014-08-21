@@ -6,6 +6,7 @@ section.content(ng-controller='BuyCtrl')
     p.literal(l10n="err-you-must-be-online-to-see-this-screen", l10n)
       | You have to be online to see this screen
 
+
   //- Buying
 
   .row(ng-show='connected')
@@ -31,3 +32,4 @@ section.content(ng-controller='BuyCtrl')
             button.btn.btn-large(type = 'submit', ng-click='loadStripe(2)') $2
             button.btn.btn-large(type = 'submit', ng-click='loadStripe(5)') $5
             button.btn.btn-large(type = 'submit', ng-click='loadStripe(10)') $10
+
