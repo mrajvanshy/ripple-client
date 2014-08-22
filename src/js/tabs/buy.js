@@ -122,3 +122,4 @@ BuyTab.prototype.angular = function (module)
 };
 
 module.exports = BuyTab;
+
