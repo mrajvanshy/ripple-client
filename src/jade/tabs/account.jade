@@ -3,10 +3,7 @@ section.col-xs-12.content(ng-controller="AccountCtrl")
     div(ng-show="'web' === client && !loadingAccount && !account.Balance && loadState.account && connected")
       include banner/unfunded
     .col-sm-3
-      .info
-        a(href="", ng-click="infoPage = 'public'"
-          ng-class="{active: infoPage == 'public'}", l10n) Public Information
-
+      include account/navbar
     .col-sm-9.list
       div(ng-show="'web' === client")
         .showPublic(ng-show="infoPage == 'public'")
