@@ -26,21 +26,21 @@ section.col-xs-12.content(ng-controller="KycCtrl")
         .row
           .col-xs-12.col-sm-6.col-md-2
             label(for="day", l10n) Day
-              input.form-control.line1(
+              input.form-control.day(
               name='day', id="day", type='text'
               rp-combobox="days", rp-combobox-select
               ng-model='profile.birthday.day', ng-pattern='validation_pattern_day'
               required)
-          .col-xs-12.col-sm-6.col-md-2
+          .col-xs-12.col-sm-6.col-md-3
             label(for="month", l10n) Month
-              input.form-control.line1(
+              input.form-control.month(
               name='month', id="month", type='text'
               rp-combobox="months", rp-combobox-select
               ng-model='profile.birthday.month'
               required)
           .col-xs-12.col-sm-6.col-md-2
             label(for="year", l10n) Year
-              input.form-control.line1(
+              input.form-control.year(
               name='year', id="year", type='text'
               rp-combobox="years", rp-combobox-select
               ng-model='profile.birthday.year', ng-pattern='validation_pattern_year'
