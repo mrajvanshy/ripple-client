@@ -869,16 +869,15 @@ TradeTab.prototype.angular = function(module)
     }
 
     $scope.add_pair = function () {
+      var first = $scope.first_currency_selected == 'XRP'
+        ? 'XRP'
+        : $scope.first_currency_selected + '.' + $scope.first_issuer_selected;
 
-      if($scope.first_currency_selected == "XRP"){
-        $scope.order.currency_pair = $scope.first_currency_selected + '/' + $scope.second_currency_selected + '.' + $scope.second_issuer_selected;
-      }
-      else if($scope.second_currency_selected == "XRP"){
-        $scope.order.currency_pair = $scope.first_currency_selected + '.' + $scope.first_issuer_selected + '/' + $scope.second_currency_selected;
-      }
-      else {
-        $scope.order.currency_pair = $scope.first_currency_selected + '.' + $scope.first_issuer_selected + '/' + $scope.second_currency_selected + '.' + $scope.second_issuer_selected;
-      }
+      var second = $scope.second_currency_selected == 'XRP'
+        ? 'XRP'
+        : $scope.second_currency_selected + '.' + $scope.second_issuer_selected;
+
+      $scope.order.currency_pair = first + '/' + second;
 
       $scope.userBlob.unshift("/trade_currency_pairs", {"name": $scope.order.currency_pair});
       $scope.userBlob.set('/trade_currency_pairs', $scope.pairs_query);
