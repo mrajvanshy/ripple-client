@@ -33,6 +33,7 @@ require('../services/rippletxt.service.js');
 require('../services/federation.service.js');
 require('../services/domainalias.service.js');
 require('../services/history.service.js');
+require('../services/notifications.service.js');
 
 require('../services/integration/appManager.service.js');
 require('../services/integration/profileManager.service.js');
@@ -70,7 +71,8 @@ var appDependencies = [
   // Filters
   'filters',
   'ui.bootstrap',
-  'ui.sortable'
+  'ui.sortable',
+  'notifications'
 ];
 
 // Load tabs
@@ -98,22 +100,39 @@ var tabdefs = [
   require('../tabs/usd.controller.js'),
   require('../tabs/eur.controller.js'),
   require('../tabs/sgd.controller.js'),
-  require('../tabs/aud.controller.js'),
   require('../tabs/gold.controller.js'),
   require('../tabs/tou.controller.js'),
   require('../tabs/privacypolicy.controller.js'),
   require('../tabs/twofa.controller.js'),
   require('../tabs/jpy.controller.js'),
   require('../tabs/mxn.controller.js'),
-  require('../tabs/nzd.controller.js'),
   require('../tabs/404.controller.js'),
   require('../tabs/brl.controller.js'),
   require('../tabs/settingstrade.controller.js'),
+  require('../tabs/settingsgateway.controller.js'),
+  require('../tabs/notifications.controller.js'),
 
   // Hidden tabs
   require('../tabs/apps.controller.js'),
   require('../tabs/su.controller.js')
 ];
+
+// Language
+window.lang = (function(){
+  var languages = _.pluck(require('../../../l10n/languages.json'), 'code');
+  var resolveLanguage = function(lang) {
+    if (!lang) return null;
+    if (languages.indexOf(lang) != -1) return lang;
+    if (lang.indexOf("_") != -1) {
+      lang = lang.split("_")[0];
+      if (languages.indexOf(lang) != -1) return lang;
+    }
+    return null;
+  };
+  return resolveLanguage(store.get('ripple_language')) ||
+    resolveLanguage(window.navigator.userLanguage || window.navigator.language) ||
+    'en';
+})();
 
 // Prepare tab modules
 var tabs = tabdefs.map(function (Tab) {
@@ -137,46 +156,40 @@ var app = angular
 var rippleclient = window.rippleclient = {};
 rippleclient.app = app;
 rippleclient.types = types;
+
 // for unit tests
 rippleclient.tabs = {};
 _.each(tabs, function(tab) { rippleclient.tabs[tab.tabName] = tab; });
-
-// Install basic page template
-angular.element('body').prepend(require('../../jade/client/index.jade')());
 
 Config.$inject = ['$routeProvider', '$injector'];
 
 function Config ($routeProvider, $injector) {
   // Set up routing for tabs
   _.each(tabs, function (tab) {
-    if ("function" === typeof tab.generateHtml) {
-      var template = tab.generateHtml();
+    var config = {
+      tabName: tab.tabName,
+      tabClass: 't-' + tab.tabName,
+      pageMode: 'pm-' + tab.pageMode,
+      mainMenu: tab.mainMenu,
+      templateUrl: 'templates/' + lang + '/tabs/' + tab.tabName + '.html'
+    };
 
-      var config = {
-        tabName: tab.tabName,
-        tabClass: 't-'+tab.tabName,
-        pageMode: 'pm-'+tab.pageMode,
-        mainMenu: tab.mainMenu,
-        template: template
-      };
+    if ('balance' === tab.tabName) {
+      $routeProvider.when('/', config);
+    }
 
-      if ('balance' === tab.tabName) {
-        $routeProvider.when('/', config);
-      }
+    $routeProvider.when('/' + tab.tabName, config);
 
-      $routeProvider.when('/'+tab.tabName, config);
-
-      if (tab.extraRoutes) {
-        _.each(tab.extraRoutes, function(route) {
-          $.extend({}, config, route.config);
-          $routeProvider.when(route.name, config);
-        });
-      }
-
-      _.each(tab.aliases, function (alias) {
-        $routeProvider.when('/'+alias, config);
+    if (tab.extraRoutes) {
+      _.each(tab.extraRoutes, function(route) {
+        $.extend({}, config, route.config);
+        $routeProvider.when(route.name, config);
       });
     }
+
+    _.each(tab.aliases, function (alias) {
+      $routeProvider.when('/' + alias, config);
+    });
   });
 
   // Language switcher
@@ -185,7 +198,7 @@ function Config ($routeProvider, $injector) {
       lang = routeParams.language;
 
       if (!store.disabled) {
-        store.set('ripple_language',lang ? lang : '');
+        store.set('ripple_language', lang ? lang : '');
       }
 
       // problem?
@@ -229,6 +242,7 @@ function Run ($rootScope, $route, $routeParams, $location)
   var scope = $rootScope;
   $rootScope.$route = $route;
   $rootScope.$routeParams = $routeParams;
+  $rootScope.lang = lang;
   $('#main').data('$scope', scope);
 
   // If using the old "amnt" parameter rename it "amount"
@@ -240,6 +254,15 @@ function Run ($rootScope, $route, $routeParams, $location)
 
   // put Options to rootScope so it can be used in html templates
   $rootScope.globalOptions = Options;
+
+  // Show loading while waiting for the template load
+  $rootScope.$on('$routeChangeStart', function() {
+    $rootScope.pageLoading = true;
+  });
+
+  $rootScope.$on('$routeChangeSuccess', function() {
+    $rootScope.pageLoading = false;
+  });
 
   // Once the app controller has been instantiated
   // XXX ST: I think this should be an event instead of a watch

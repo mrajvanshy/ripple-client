@@ -20,11 +20,6 @@ util.inherits(TradeTab, Tab);
 TradeTab.prototype.tabName = 'trade';
 TradeTab.prototype.mainMenu = 'trade';
 
-TradeTab.prototype.generateHtml = function ()
-{
-  return require('../../jade/tabs/trade.jade')();
-};
-
 TradeTab.prototype.angularDeps = Tab.prototype.angularDeps.concat(['books']);
 
 TradeTab.prototype.extraRoutes = [
@@ -38,12 +33,12 @@ TradeTab.prototype.angular = function(module)
   TradeCtrl.$inject = ['rpBooks', '$scope', 'rpId', 'rpNetwork',
                                   '$routeParams', '$location', '$filter',
                                   'rpTracker', 'rpKeychain', '$rootScope',
-                                  'rpPopup', '$anchorScroll', '$timeout'];
+                                  'rpPopup', '$anchorScroll', '$timeout', '$templateRequest'];
 
   function TradeCtrl(books, $scope, id, network,
                      $routeParams, $location, $filter,
                      rpTracker, keychain, $rootScope,
-                     popup, $anchorScroll, $timeout)
+                     popup, $anchorScroll, $timeout, $templateRequest)
   {
     var timer;
 
@@ -60,6 +55,24 @@ TradeTab.prototype.angular = function(module)
       reverse: false
     };
 
+    function onBlobIsValid() {
+      $scope.pairs_query = settings.getSetting($scope.userBlob, 'trade_currency_pairs');
+      // Remember user preference on Convert vs. Trade
+      if (!settings.getSetting($scope.userBlob, 'rippleExchangeSelectionTrade', false)) {
+        $scope.userBlob.set('/clients/rippletradecom/rippleExchangeSelectionTrade', true);
+      }
+    }
+
+    if (settings.blobIsValid($scope.userBlob)) {
+      onBlobIsValid();
+    } else {
+      var removeListener = $scope.$on('$blobUpdate', function() {
+        if (!settings.blobIsValid($scope.userBlob)) return;
+        onBlobIsValid();
+        removeListener();
+      });
+    }
+
     $scope.sortOptions.sortFieldName = $scope.ordersSortFieldChoicesKeyed[$scope.sortOptions.sortField];
 
     $scope.$watch('sortOptions.sortFieldName', function () {
@@ -74,8 +87,6 @@ TradeTab.prototype.angular = function(module)
     $scope.load_orderbook = true;
     // Remember user preference on Convert vs. Trade
     $rootScope.ripple_exchange_selection_trade = true;
-
-    $scope.pairs_query = settings.getSetting($scope.userBlob, 'trade_currency_pairs');
 
     $scope.currencies_all = require('../data/currencies');
     $scope.currencies = [];
@@ -190,11 +201,13 @@ TradeTab.prototype.angular = function(module)
 
       // Ensure that the orderbook matches the currency pair of the order being edited, for the user
       // to reference and to ensure that the Fat Finger check will compare with the correct price.
-      $scope.editOrder.orderbookReady = false;
-      if ($scope.goto_order_currency.bind(this)()) {
-        // Reset Buy and Sell widgets as the currency pair has changed so the price & qty will not be relevant
-        $scope.reset_widget('buy', true);
-        $scope.reset_widget('sell', true);
+      if (getOrderCurrency(this.entry) !== $scope.order.currency_pair) {
+        $scope.editOrder.orderbookReady = false;
+        if ($scope.goto_order_currency.bind(this)()) {
+          // Reset Buy and Sell widgets as the currency pair has changed so the price & qty will not be relevant
+          $scope.reset_widget('buy', true);
+          $scope.reset_widget('sell', true);
+        }
       }
       $scope.editOrder.ccyPair = $scope.order.currency_pair;
 
@@ -401,14 +414,15 @@ TradeTab.prototype.angular = function(module)
     $scope.fill_widget = function (type, order, sum) {
       $scope.reset_widget(type);
 
-      $scope.order[type].price = order.price.to_human().replace(',','');
+      $scope.order[type].price = order.price.to_human({group_sep: false});
 
       if (sum) {
-        $scope.order[type].first = order.sum.to_human().replace(',','');
+        $scope.order[type].first = order.sum.to_human({group_sep: false});
         $scope.calc_second(type);
       }
       scrollToElement('widgetGroup');
     };
+
     function scrollToElement(element) {
       var el = document.getElementById(element);
       var yPos = el.getClientRects()[0].top;
@@ -421,6 +435,7 @@ TradeTab.prototype.angular = function(module)
           }
       },5);
     }
+
     /**
      * Happens when user clicks on 'Place Order' button.
      *
@@ -451,11 +466,33 @@ TradeTab.prototype.angular = function(module)
       }
     };
 
+
+    /**
+     * Returns orders currency pair, so we can compare it with current pair.
+     */
+    function getOrderCurrency(entry) {
+      if (!entry) return '';
+      var first_currency = entry.first.currency().to_json();
+      var first_issuer = entry.first.issuer().to_json();
+      var second_currency = entry.second.currency().to_json();
+      var second_issuer = entry.second.issuer().to_json();
+
+      var first = first_currency === 'XRP'
+        ? 'XRP'
+        : first_currency + '.' + first_issuer;
+
+      var second = second_currency === 'XRP'
+        ? 'XRP'
+        : second_currency + '.' + second_issuer;
+
+      var currency_pair = first + '/' + second;
+      return currency_pair;
+    }
+
     /**
      * Happens when user clicks the currency in 'My Orders'.
      */
-    $scope.goto_order_currency = function()
-    {
+    $scope.goto_order_currency = function() {
       if (!this.entry) return;
       var entry = this.entry;
       var order = $scope.order;
@@ -465,25 +502,26 @@ TradeTab.prototype.angular = function(module)
       order.second_currency = this.entry.second.currency().to_json();
       order.second_issuer = this.entry.second.issuer().to_json();
 
-      var first = order.first_currency == 'XRP'
+      var first = order.first_currency === 'XRP'
         ? 'XRP'
         : order.first_currency + '.' + order.first_issuer;
 
-      var second = order.second_currency == 'XRP'
+      var second = order.second_currency === 'XRP'
         ? 'XRP'
         : order.second_currency + '.' + order.second_issuer;
 
       order.currency_pair = first + '/' + second;
 
       var changedPair = updateSettings();
-      //updateMRU();
-      if(changedPair) {
+      // updateMRU();
+      if (changedPair) {
         $scope.load_orderbook = true;
+        $scope.reset_widget('buy', true);
+        $scope.reset_widget('sell', true);
       }
       return changedPair;
     };
 
-    
     $scope.view_orders_history = function()
     {
       $location.url('/history?f=orders');
@@ -757,7 +795,10 @@ TradeTab.prototype.angular = function(module)
           popupScope.$destroy();
         };
 
-        popup.blank(require('../../jade/popup/modifyOrderError.jade')(), popupScope);
+        $templateRequest('templates/' + lang + '/popup/modifyOrderError.html', false).then(function(template) {
+          popup.blank(template, popupScope);
+        });
+
         return true;
       }
       else return false;
@@ -767,11 +808,11 @@ TradeTab.prototype.angular = function(module)
      * Handle transaction result
      */
     function setEngineStatus(res, accepted, type) {
-      $scope.engine_result = res.engine_result;
-      $scope.engine_result_message = res.engine_result_message;
+      $scope.engine_result = res.engine_result || 'tem';
+      $scope.engine_result_message = res.engine_result_message || (res.remote && res.remote.error_exception);
       $scope.engine_status_accepted = accepted;
 
-      if (res.engine_result.slice(0, 3) === 'tes') {
+      if (res.engine_result && res.engine_result.slice(0, 3) === 'tes') {
         $scope.tx_result = accepted ? 'cleared' : 'pending';
       } else {
         $scope.tx_result = 'unknown';
@@ -819,7 +860,7 @@ TradeTab.prototype.angular = function(module)
 
       if (type === 'buy') bestPrice = $scope.bookShow.bids[0].showPrice;
       else if (type === 'sell') bestPrice = $scope.bookShow.asks[0].showPrice;
-      bestPrice = +bestPrice.replace(',','');
+      bestPrice = +bestPrice.replace(/,/g, '');
 
       return (bestPrice &&
           (price > (bestPrice * fatFingerMarginMultiplier) ||
@@ -839,7 +880,7 @@ TradeTab.prototype.angular = function(module)
       if (order.price_amount && order.price_amount.is_valid() &&
           order.first_amount && order.first_amount.is_valid()) {
         order.second_amount = order.price_amount.product_human(order.first_amount);
-        order.second = +order.second_amount.to_human({group_sep: false});
+        order.second = order.second_amount.to_human({group_sep: false});
       }
     };
 
@@ -857,15 +898,16 @@ TradeTab.prototype.angular = function(module)
           order.second_amount && order.second_amount.is_valid()) {
 
         if (!order.price_amount.is_native()) {
-          var price = order.price_amount.to_human();
+          var price = order.price_amount.to_human({group_sep: false});
           var currency = order.price_amount.currency().to_json();
           var issuer = order.price_amount.issuer().to_json();
 
-          order.first_amount = Amount.from_json(order.second_amount.to_text_full()).ratio_human(Amount.from_json(price + '/' + currency + '/' + issuer), {reference_date: new Date()});
+          // use replace(/,/g,'') until ripple lib fixed
+          order.first_amount = Amount.from_json(order.second_amount.to_text_full().replace(/,/g, '')).ratio_human(Amount.from_json(price + '/' + currency + '/' + issuer), {reference_date: new Date()});
         } else {
-          order.first_amount = Amount.from_json(order.second_amount.to_text_full()).ratio_human(Amount.from_json(order.price_amount.to_text()), {reference_date: new Date()});
+          order.first_amount = Amount.from_json(order.second_amount.to_text_full().replace(/,/g, '')).ratio_human(Amount.from_json(order.price_amount.to_text()), {reference_date: new Date()});
         }
-        order.first = +order.first_amount.to_human({group_sep: false});
+        order.first = order.first_amount.to_human({group_sep: false});
       }
     };
 
@@ -969,10 +1011,13 @@ TradeTab.prototype.angular = function(module)
       }
 
       if ('string' !== typeof pair) pair = '';
-      pair = pair.split('/');
+
+      if (pair) {
+        pair = pair.split('/');
+      }
 
       // Invalid currency pair
-      if (pair.length != 2 || pair[0].length === 0 || pair[1].length === 0) {
+      if (!pair || pair.length != 2 || pair[0].length === 0 || pair[1].length === 0) {
         order.first_currency = Currency.from_json('XRP');
         order.second_currency = Currency.from_json('XRP');
         order.valid_settings = false;
@@ -1069,6 +1114,11 @@ TradeTab.prototype.angular = function(module)
       // Load orderbook
       if (order.prev_settings !== key) {
         changedPair = true;
+        $scope.priceTicker = {
+          bid: 'n/a',
+          ask: 'n/a',
+          spread: 'n/a'
+        };
         loadOffers();
 
         order.prev_settings = key;
@@ -1076,7 +1126,7 @@ TradeTab.prototype.angular = function(module)
       else if ($scope.book.ready) $scope.editOrder.orderbookReady = true;
 
       // Update widgets
-      ['buy','sell'].forEach(function(type){
+      ['buy', 'sell'].forEach(function(type) {
         $scope.update_first(type);
         $scope.update_price(type);
         $scope.update_second(type);
@@ -1374,6 +1424,9 @@ TradeTab.prototype.angular = function(module)
       }
 
       $scope.load_orderbook = true;
+      $scope.reset_widget('buy', true);
+      $scope.reset_widget('sell', true);
+
       updateSettings();
       resetIssuers(false);
       //updateMRU();

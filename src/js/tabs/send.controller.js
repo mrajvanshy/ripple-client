@@ -18,11 +18,6 @@ SendTab.prototype.mainMenu = 'send';
 
 SendTab.prototype.angularDeps = Tab.prototype.angularDeps.concat(['federation', 'keychain']);
 
-SendTab.prototype.generateHtml = function ()
-{
-  return require('../../jade/tabs/send.jade')();
-};
-
 SendTab.prototype.angular = function (module)
 {
   module.controller('SendCtrl', ['$scope', '$timeout', '$routeParams', 'rpId',
@@ -36,6 +31,7 @@ SendTab.prototype.angular = function (module)
         passwordUpdater,
         passwordUpdaterDestr;
 
+    var pathUpdateTimeout;
     var timer;
     var xrpCurrency = Currency.from_json('XRP');
 
@@ -90,8 +86,13 @@ SendTab.prototype.angular = function (module)
       setImmediate(function() {
         if ($scope.sendForm && $scope.sendForm.send_amount !== undefined) {
           $scope.$apply(function() {
-            $scope.sendForm.send_amount.$setViewValue($scope.send.amount);
-            $scope.sendForm.send_amount.$validate();
+            // $scope.sendForm.send_amount.$validate();
+            // hack - use of private method. this is because rpAmount and other
+            // validators not real validators, but parsers.
+            // and latest angular does not call parsers on $validate.
+            // when rpAmount and others changed to validators this can be changed
+            // back to $validate
+            $scope.sendForm.send_amount.$$parseAndValidate();
             $scope.update_amount();
           });
         }
@@ -109,8 +110,24 @@ SendTab.prototype.angular = function (module)
     // When the send form is invalid, path finding won't trigger. So if the form
     // is changed by one of the update_* handlers and becomes valid during the
     // next digest, we need to manually trigger another update_amount.
-    $scope.$watch('sendForm.$valid', function () {
-      $scope.update_amount();
+    $scope.$watch('sendForm.$valid', function(v) {
+      if (v) {
+        $scope.update_amount();
+      } else {
+        $scope.send.last_recipient = null;
+        $scope.send.path_status = 'waiting';
+        $scope.send.fund_status = 'none';
+
+        if ($scope.send.pathfind) {
+          $scope.send.pathfind.close();
+          delete $scope.send.pathfind;
+        }
+        if (pathUpdateTimeout) {
+          $timeout.cancel(pathUpdateTimeout);
+          pathUpdateTimeout = null;
+        }
+        $scope.reset_paths();
+      }
     });
 
     // Reset everything that depends on the destination
@@ -387,6 +404,7 @@ SendTab.prototype.angular = function (module)
       // Reset constraints
       send.currency_choices = $scope.currencies_all;
       send.currency_force = false;
+      send.currencyIsBTC = false;
 
       send.currency_choices_constraints = {};
 
@@ -468,7 +486,12 @@ SendTab.prototype.angular = function (module)
       } else {
         // The possible currencies are the intersection of all provided currency
         // constraints.
-        currencies = _.intersection.apply(_, _.values(send.currency_choices_constraints));
+        currencies = _.values(send.currency_choices_constraints);
+        if (currencies.length == 1) {
+          currencies = currencies[0];
+        } else {
+          currencies = _.intersection.apply(_, currencies);
+        }
         currencies = _.uniq(_.compact(currencies));
 
         // create the display version of the currencies
@@ -485,11 +508,13 @@ SendTab.prototype.angular = function (module)
 
       if (currencies.length === 1) {
         send.currency = send.currency_force = currencies[0];
+        send.currencyIsBTC = _.startsWith(send.currency_force, 'BTC');
       } else if (currencies.length === 0) {
         send.path_status = 'error-no-currency';
         send.currency = '';
       } else {
         send.currency_force = false;
+        send.currencyIsBTC = false;
 
         if (currencies.indexOf(send.currency) === -1) {
           send.currency = currencies[0];
@@ -527,8 +552,6 @@ SendTab.prototype.angular = function (module)
 
       $scope.update_amount();
     };
-
-    var pathUpdateTimeout;
 
     $scope.reset_amount_deps = function () {
       var send = $scope.send;
@@ -716,7 +739,7 @@ SendTab.prototype.angular = function (module)
       send.alternatives = [];
     };
 
-    $scope.update_paths = function () {
+    $scope.update_paths = function() {
       var send = $scope.send;
       var recipient = send.recipient_actual || send.recipient_address;
       var amount = send.amount_actual || send.amount_feedback;
@@ -727,11 +750,11 @@ SendTab.prototype.angular = function (module)
       send.path_status = 'pending';
 
       // Determine if we need to update the paths.
-      if (send.pathfind &&
-          send.pathfind.src_account === id.account &&
-          send.pathfind.dst_account === recipient &&
-          send.pathfind.dst_amount.equals(amount))
-        return;
+      //if (send.pathfind &&
+      //    send.pathfind.src_account === id.account &&
+      //    send.pathfind.dst_account === recipient &&
+      //    send.pathfind.dst_amount.equals(amount))
+      //  return;
 
       // Start path find
       var pf = network.remote.path_find(id.account,
@@ -748,6 +771,10 @@ SendTab.prototype.angular = function (module)
       var lastUpdate;
 
       pf.on('update', function (upd) {
+        // wrong quote
+        if ($scope.send.path_status === 'error-quote')
+          return;
+
         // if no paths found and it is first update - skip it, it often wrong
         if (send.pathfindJustStarted && (!upd.alternatives || !upd.alternatives.length)) {
           send.pathfindJustStarted = false;
@@ -793,7 +820,7 @@ SendTab.prototype.angular = function (module)
               var slightlyInFuture = new Date(+new Date() + 5 * 60000);
 
               alt.rate     = alt.amount.ratio_human(amount, {reference_date: slightlyInFuture});
-              alt.send_max = alt.amount.product_human(Amount.from_human('1.001'));
+              alt.send_max = alt.amount.scale('1.001');
               alt.paths    = raw.paths_computed || raw.paths_canonical;
 
               // Selected currency should be the first option
@@ -925,7 +952,7 @@ SendTab.prototype.angular = function (module)
     /**
      * N3. Confirmation page
      */
-    $scope.send_prepared = function () {
+    $scope.send_prepared = function() {
       // check if paths are available, if not then it is a direct send
       $scope.send.indirect = $scope.send.alt ? $scope.send.alt.paths.length : false;
 
@@ -952,10 +979,10 @@ SendTab.prototype.angular = function (module)
       }
 
       rpTracker.track('Send confirmation page', {
-        'Currency': $scope.send.currency_code,
+        Currency: $scope.send.currency_code,
         'Address Type': $scope.send.federation ? 'federation' : 'ripple',
         'Destination Tag': !!$scope.send.dt,
-        'Address': $scope.userBlob.data.account_id
+        Address: $scope.userBlob.data.account_id
       });
 
       if (Options.confirmation.send) {
@@ -974,7 +1001,18 @@ SendTab.prototype.angular = function (module)
           cleanPasswordUpdater();
         });
       } else {
-        $scope.send_confirmed();
+        if (!keychain.isUnlocked(id.account)) {
+          keychain.requestSecret(id.account, id.username, function (err, secret) {
+            if (err) {
+              console.log(err);
+              return;
+            }
+            $scope.send.secret = secret;
+            $scope.send_confirmed();
+          });
+        } else {
+          $scope.send_confirmed();
+        }
       }
     };
 

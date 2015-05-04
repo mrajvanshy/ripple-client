@@ -18,23 +18,21 @@ Questions? Contact us as support@ripple.com.
 
 ### Install Dependencies
 
-Install Node.js, Grunt, Git and Python 2 if you haven't already.
+Install Node.js, Gulp, Git and Python 2 if you haven't already.
 
 Install bower by running `sudo bower install --allow-root`.
 
 Fork and clone the ripple-client repository and run `npm install`.
 
-Create a new config.js file and copy/paste from config-example.js into the same directory, located under 'src/js'.
+Create a new config.js file and copy/paste from config-example.js into the same directory.
 
 ### Build
 
-Run 'grunt' in your command line to build the client.
+Run 'gulp' in your command line for development.
 
-Your web client is in the 'build/bundle/web/' directory. Use 'index_debug.html' for development.
+Run 'gulp dist' for the production ready client.
 
-If you want to watch for changes and have the client rebuild for index_debug.html, run 'grunt watch' while you make changes.
-
-A web server is needed to serve the built files. Please have a look at our ['Setting Up Local Environment' wiki post](https://github.com/ripple/ripple-client/wiki/Setting-Up-Local-Environment) for more information.
+Your web client is in the 'build/dist/' directory.
 
 ### Target backend
 
@@ -43,7 +41,7 @@ __This means you will only be able to log in on your dev environment with an acc
 
 If you want to point your environment at the production server:
 - set the authinfo_url in ripple.txt (in the root of the repo directory) to: `https://id.ripple.com/v1/authinfo` (make sure to rebuild + clear browser cache)
-- set the `activate_link` property in src/js/config.js to `http://ripple.com/client/#/register/activate`
+- set the `activate_link` property in config.js to `http://ripple.com/client/#/register/activate`
 
 ## Directory Layout
 

@@ -139,6 +139,11 @@ body.loaded {
   }
 }
 
+.pageLoading {
+  text-align: center;
+  margin-top: 30px;
+}
+
 #logo {
   color: @white;
   .icon-ripple-logo();
@@ -327,7 +332,15 @@ header {
     }
   }
 }
-
+@media (max-width: @screen-sm-max) {
+  header {
+    nav.navbar {
+      ul.nav > li > a {
+        padding: 20px 15px;
+      }
+    }
+  }
+}
 @sideNavWidth: 150px;
 
 #wrapper .container > .main section {
@@ -450,11 +463,11 @@ footer {
     height: 36px;
     margin: 22px 55px;
     background-size: 150px 36px;
-    background-image: url('../../img/logo.png');
+    background-image: url('/img/logo.png');
 
     // Pixel ratio: 2
     @media only screen and (-webkit-min-device-pixel-ratio: 2), only screen and (min-device-pixel-ratio: 2) {
-      background-image: url('../../img/logo_2x.png');
+      background-image: url('/img/logo_2x.png');
     }
   }
 

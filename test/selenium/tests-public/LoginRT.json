@@ -5,7 +5,7 @@
   "steps": [
     {
       "type": "get",
-      "url": "http://localhost:9001/#/login"
+      "url": "http://ripp.site:3000/#/login"
     },
     {
       "type": "waitForTextPresent",
@@ -45,8 +45,8 @@
     {
       "type": "clickElement",
       "locator": {
-        "type": "xpath",
-        "value": "//div[@class='mainnav']/div/div[2]/ul[2]/li[4]/a"
+        "type": "css selector",
+        "value": ".fa-cog"
       }
     },
     {

@@ -74,12 +74,8 @@
     if (this.rpAddressPopoverSum) {
       var nowSumm = this.$parse(this.rpAddressPopoverSum)(this.scope);
       nowSumm = this.rpamountFilter(nowSumm, AddressPopover.summFilterOpts);
-      console.log('1', nowSumm);
-      console.log('2', this.sum);
       if (nowSumm != this.summ) {
-        console.log('true1');
         if (this.rpAddressPopoverSumMinus && nowSumm != 'n/a') {
-          console.log('true2');
           nowSumm = '-' + nowSumm;
         }
         this.summ = nowSumm;
@@ -201,11 +197,8 @@
     }
   }
 
-  var myTemplate = require('../../jade/directives/addresspopover.jade')();
-  var texts = myTemplate.split('<br/>');
-
-  AddressPopover.textRippleAddress = texts[0];
-  AddressPopover.textShowInGraph = texts.length > 1 ? texts[1] : 'Show in graph';
+  AddressPopover.textRippleAddress = 'span(l10n) Ripple address';
+  AddressPopover.textShowInGraph = 'span(l10n) Show in graph';
 
   /**
    * Special popover to show ripple address with ability to double click on address to select.
@@ -216,9 +209,15 @@
    */
   angular.module('directives').directive('rpAddressPopover', rpAddressPopover);
 
-  rpAddressPopover.$inject = ['$timeout', 'rpId', '$filter', '$parse'];
+  rpAddressPopover.$inject = ['$timeout', 'rpId', '$filter', '$parse', '$templateRequest'];
 
-  function rpAddressPopover($timeout, id, $filter, $parse) {
+  function rpAddressPopover($timeout, id, $filter, $parse, $templateRequest) {
+    $templateRequest('templates/' + window.lang + '/directives/addresspopover.html', false).then(function(template) {
+      var texts = template.split('<br/>');
+      AddressPopover.textRippleAddress = texts[0];
+      AddressPopover.textShowInGraph = texts.length > 1 ? texts[1] : AddressPopover.textShowInGraph;
+    });
+
     return {
       restrict: 'A',
       replace: false,

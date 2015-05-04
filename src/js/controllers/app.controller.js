@@ -16,10 +16,10 @@ angular
   .controller('AppCtrl', AppCtrl);
 
 AppCtrl.$inject = ['$rootScope', 'rpId', 'rpNetwork', 'rpKeychain', 'rpTxQueue',
-  'rpAppManager', 'rpTracker', '$timeout', 'rpHistory'];
+  'rpAppManager', 'rpTracker', '$timeout', 'rpHistory', '$templateRequest'];
 
 function AppCtrl ($scope, id, net, keychain, txQueue, appManager, rpTracker,
-                  $timeout, rpHistory)
+                  $timeout, rpHistory, $templateRequest)
 {
   reset();
 
@@ -105,8 +105,8 @@ function AppCtrl ($scope, id, net, keychain, txQueue, appManager, rpTracker,
 
     accountObj.on('entry', function(data){
       $scope.$apply(function () {
-        $scope.fee = remote.createTransaction()._computeFee();
         $scope.loadingAccount = false;
+        $scope.noUserHistory = false;
         myHandleAccountEntry(data);
 
         if ($scope.userHistory) return;
@@ -129,6 +129,8 @@ function AppCtrl ($scope, id, net, keychain, txQueue, appManager, rpTracker,
       if (err) {
         $scope.loadingAccount = false;
         $scope.loadState.account = true;
+        $scope.noUserHistory = true;
+        $scope.userHistory = null;
       }
     });
 
@@ -168,11 +170,22 @@ function AppCtrl ($scope, id, net, keychain, txQueue, appManager, rpTracker,
           //      library upstream.
           line = $.extend({}, line, {
             limit: ripple.Amount.from_json({value: line.limit, currency: line.currency, issuer: line.account}),
-            limit_peer: ripple.Amount.from_json({value: line.limit_peer, currency: line.currency, issuer: account}),
-            balance: ripple.Amount.from_json({value: line.balance, currency: line.currency, issuer: account})
+            limit_peer: ripple.Amount.from_json({value: line.limit_peer, currency: line.currency, issuer: line.account}),
+            balance: ripple.Amount.from_json({value: line.balance, currency: line.currency, issuer: line.account})
           });
 
           $scope.lines[line.account + line.currency] = line;
+
+          // TEMPORARY: Check if user has trust to RippleTradeJapan to display banner
+          $scope.hasRTJapanTrust = false;
+          $scope.hasRTJapanTrustWithRippling = false;
+          if (line.account === 'rMAz5ZnK73nyNUL4foAvaxdreczCkG3vA6') {
+            $scope.hasRTJapanTrust = true;
+            if (!line.no_ripple || !line.no_ripple_peer) {
+              $scope.hasRTJapanTrustWithRippling = true;
+            }
+          }
+
           updateRippleBalance(line.currency, line.account, line.balance);
         }
       }
@@ -429,6 +442,7 @@ function AppCtrl ($scope, id, net, keychain, txQueue, appManager, rpTracker,
       $scope.offers[""+offer.seq] = offer;
     } else {
       delete $scope.offers[""+offer.seq];
+
     }
   }
 
@@ -437,7 +451,7 @@ function AppCtrl ($scope, id, net, keychain, txQueue, appManager, rpTracker,
   function isSignificantLine(line) {
     var DefaultRipple = $scope.account.Flags & ripple.Remote.flags.account_root.DefaultRipple;
 
-    return line.balance != 0 || line.limit != 0 || line.limit_peer != 0
+    return line.balance !== 0 || line.limit !== 0 || line.limit_peer !== 0
       || DefaultRipple === line.no_ripple;
   }
 
@@ -644,10 +658,11 @@ function AppCtrl ($scope, id, net, keychain, txQueue, appManager, rpTracker,
   ];
 
   // load strings from jade template
-  var ordersStringsHtml = $(require('../../jade/strings/myOrders.jade')());
-  _.each($scope.ordersSortFieldChoices, function(element, index) {
-    var localisedNameText = ordersStringsHtml.find('#' + element.value).text();
-    element.name = localisedNameText;
+  $templateRequest('templates/' + lang + '/strings/myOrders.html', true).then(function(ordersStringsHtml) {
+    _.each($scope.ordersSortFieldChoices, function(element, index) {
+      var localisedNameText = $(ordersStringsHtml).find('#' + element.value).text();
+      element.name = localisedNameText;
+    });
   });
 
   $scope.ordersSortFieldChoicesKeyed = {};

@@ -15,11 +15,6 @@ util.inherits(TrustTab, Tab);
 TrustTab.prototype.tabName = 'trust';
 TrustTab.prototype.mainMenu = 'fund';
 
-TrustTab.prototype.generateHtml = function ()
-{
-  return require('../../jade/tabs/trust.jade')();
-};
-
 TrustTab.prototype.angular = function (module)
 {
   module.controller('TrustCtrl', ['$scope', 'rpBooks', '$timeout', '$routeParams', 'rpId',
@@ -394,7 +389,8 @@ TrustTab.prototype.angular = function (module)
         $scope.editing = true;
 
         $scope.trust = {};
-        $scope.trust.limit = Number($scope.component.limit.to_json().value);
+        // edit as string because Chrome shows tiny numbers in e-notation
+        $scope.trust.limit = String($scope.component.limit.to_json().value);
         $scope.trust.rippling = !$scope.component.no_ripple;
         $scope.trust.limit_peer = Number($scope.component.limit_peer.to_json().value);
         $scope.trust.balance = String($scope.component.balance.to_json().value);
@@ -644,10 +640,12 @@ TrustTab.prototype.angular = function (module)
           // for that trust line has rippling turned on.
           
           // This is an incoming trustline
-          return !$scope.component.no_ripple;
+          return true;
         } else if (Number($scope.component.limit.to_json().value) === 0) {
           // This is also an incoming trustline
-          return $scope.component.no_ripple;
+          return true;
+        } else {
+          return false;
         }
       };
 

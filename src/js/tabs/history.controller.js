@@ -14,11 +14,6 @@ util.inherits(HistoryTab, Tab);
 HistoryTab.prototype.tabName = 'history';
 HistoryTab.prototype.mainMenu = 'wallet';
 
-HistoryTab.prototype.generateHtml = function ()
-{
-  return require('../../jade/tabs/history.jade')();
-};
-
 HistoryTab.prototype.angular = function (module) {
   module.controller('HistoryCtrl', ['$scope', 'rpId', 'rpNetwork', 'rpTracker', 'rpAppManager', '$routeParams', '$location',
                                      function ($scope, id, network, rpTracker, appManager, $routeParams, $location)
@@ -84,6 +79,7 @@ HistoryTab.prototype.angular = function (module) {
 
     // Initial history load
     var initialLoad = $scope.$watch('userHistory', function(){
+      if ($scope.noUserHistory) $scope.loadingHistory = false;
       if (!$scope.userHistory) return;
 
       loadHistory();
@@ -322,7 +318,7 @@ HistoryTab.prototype.angular = function (module) {
         lineTemplate.Date = dateTime.format('YYYY-MM-DD');
         lineTemplate.Time = dateTime.format('HH:mm:ss');
         lineTemplate.LedgerNum = histLine.ledger_index;
-        lineTemplate.Fee = formatAmount(Amount.from_json(histLine.fee));
+        lineTemplate.Fee = formatAmount(histLine.fee);
         lineTemplate.TransHash = histLine.hash;
 
         // Default type-specific fields to NA, they will be overridden later if applicable

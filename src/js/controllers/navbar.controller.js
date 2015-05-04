@@ -20,39 +20,38 @@ module.controller('NavbarCtrl', ['$scope', '$element', '$compile', 'rpId',
   var tickInterval = 4000;
   var tickUpcoming = false;
 
-  var tplAccount = require('../../jade/notification/account.jade');
-
   // Activate #status panel
   $scope.toggle_secondary = function () {
     $scope.show_secondary = !$scope.show_secondary;
   };
 
   $scope.page_reload = function () {
-      // Reload
-      location.reload();
+    // Reload
+    location.reload();
   };
 
-  $scope.$watch('fee', function(){
-    $scope.currentFee = ripple.Amount.from_json($scope.fee).to_human(); 
+  $scope.$watch('connected', function(){
+    $scope.fee = network.remote.createTransaction()._computeFee();
+    // $scope.currentFee = ripple.Amount.from_json($scope.fee).to_human(); 
 
-    if(!$scope.connected && $scope.userCredentials.username) {
+    if (!$scope.connected && $scope.userCredentials.username) {
       $scope.serverStatus = 'disconnected';
     }
-    else if ($scope.currentFee && $scope.connected && $scope.currentFee > Options.low_load_threshold && $scope.currentFee < ripple.Amount.from_json(Options.max_tx_network_fee).to_human()) {
-      $scope.serverLoad = 'mediumLoad';
-      $scope.serverStatus = 'mediumLoad';
-    } 
-    else if ($scope.currentFee && $scope.connected && $scope.currentFee >= ripple.Amount.from_json(Options.max_tx_network_fee).to_human()) {
-      $scope.serverLoad = 'highLoad';
-      $scope.serverStatus = 'highLoad';
-    }
-    else if ($scope.currentFee && $scope.connected) {
-      $scope.serverLoad = '';
-      $scope.serverStatus = 'lowLoad';
+    else if ($scope.connected && $scope.fee) {
+      if ((parseFloat(ripple.Amount.from_json($scope.fee).to_human()) > parseFloat(Options.low_load_threshold)) && (parseFloat($scope.fee) < parseFloat(Options.max_tx_network_fee))) {
+        $scope.serverLoad = 'mediumLoad';
+        $scope.serverStatus = 'mediumLoad';
+      } else if (parseFloat($scope.fee) >= parseFloat(Options.max_tx_network_fee)) {
+        $scope.serverLoad = 'highLoad';
+        $scope.serverStatus = 'highLoad';
+      } else {
+        $scope.serverLoad = '';
+        $scope.serverStatus = 'lowLoad';
+      }
     }
     else {
       $scope.serverStatus = 'connected';
-    } 
+    }
   }, true);
 
   // Username

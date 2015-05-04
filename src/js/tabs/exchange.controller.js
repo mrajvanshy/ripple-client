@@ -1,5 +1,6 @@
 var util = require('util'),
     webutil = require('../util/web'),
+    settings = require('../util/settings'),
     Tab = require('../client/tab').Tab,
     Amount = ripple.Amount,
     Base = ripple.Base,
@@ -16,11 +17,6 @@ util.inherits(ExchangeTab, Tab);
 ExchangeTab.prototype.tabName = 'exchange';
 ExchangeTab.prototype.mainMenu = 'exchange';
 
-ExchangeTab.prototype.generateHtml = function ()
-{
-  return require('../../jade/tabs/exchange.jade')();
-};
-
 ExchangeTab.prototype.angular = function (module)
 {
   module.controller('ExchangeCtrl', ['$scope', '$timeout', '$routeParams',
@@ -32,6 +28,18 @@ ExchangeTab.prototype.angular = function (module)
       var timer;
       var pf = null;
 
+      if (settings.blobIsValid($scope.userBlob)) {
+        if (settings.getSetting($scope.userBlob, 'rippleExchangeSelectionTrade', false)) {
+          $scope.userBlob.set('/clients/rippletradecom/rippleExchangeSelectionTrade', false);
+        }
+      } else {
+        var removeListener = $scope.$on('$blobUpdate', function() {
+          if (settings.getSetting($scope.userBlob, 'rippleExchangeSelectionTrade', false)) {
+            $scope.userBlob.set('/clients/rippletradecom/rippleExchangeSelectionTrade', false);
+          }
+          removeListener();
+        });
+      }
       // Remember user preference on Convert vs. Trade
       $rootScope.ripple_exchange_selection_trade = false;
 
@@ -56,8 +64,13 @@ ExchangeTab.prototype.angular = function (module)
         setImmediate(function() {
           if ($scope.exchangeForm.amount !== undefined) {
             $scope.$apply(function() {
-              $scope.exchangeForm.amount.$setViewValue($scope.exchange.amount);
-              $scope.exchangeForm.amount.$validate();
+              // $scope.exchangeForm.amount.$validate();
+              // hack - use of private method. this is because rpAmount and other
+              // validators not real validators, but parsers.
+              // and latest angular does not call parsers on $validate.
+              // when rpAmount and others changed to validators this can be changed
+              // back to $validate
+              $scope.exchangeForm.amount.$$parseAndValidate();
               runUpdateExchangeIfNeeded();
             });
           }
@@ -191,7 +204,7 @@ ExchangeTab.prototype.angular = function (module)
                   var alt = {};
                   alt.amount   = Amount.from_json(raw.source_amount);
                   alt.rate     = alt.amount.ratio_human(amount);
-                  alt.send_max = alt.amount.product_human(Amount.from_human('1.001'));
+                  alt.send_max = alt.amount.scale('1.001');
                   alt.paths    = raw.paths_computed
                       ? raw.paths_computed
                       : raw.paths_canonical;
