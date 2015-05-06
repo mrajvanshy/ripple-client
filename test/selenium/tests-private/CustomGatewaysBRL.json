@@ -68,10 +68,14 @@
       "text": "Brazil"
     },
     {
+      "type": "pause",
+      "waitTime": "3000"
+    },
+    {
       "type": "clickElement",
       "locator": {
-        "type": "xpath",
-        "value": "//div[@id='t-brl']//button[.='Add RippexAdding...']"
+        "type": "id",
+        "value": "t-brl-add-rippex"
       }
     },
     {
@@ -171,7 +175,7 @@
       "type": "clickElement",
       "locator": {
         "type": "link text",
-        "value": "Gateways"
+        "value": "Add any gateway (trust lines)"
       }
     },
     {
@@ -219,6 +223,10 @@
       "negated": true
     },
     {
+      "type": "pause",
+      "waitTime": "1000"
+    },
+    {
       "type": "clickElement",
       "locator": {
         "type": "css selector",
@@ -227,7 +235,7 @@
     },
     {
       "type": "waitForTextPresent",
-      "text": "Australian",
+      "text": "Real",
       "negated": true
     },
     {

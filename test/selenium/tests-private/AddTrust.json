@@ -60,7 +60,7 @@
       "type": "clickElement",
       "locator": {
         "type": "link text",
-        "value": "Gateways"
+        "value": "Add any gateway (trust lines)"
       }
     },
     {
@@ -92,6 +92,10 @@
         "value": "trust_counterparty"
       },
       "text": "~snapswap"
+    },
+    {
+      "type": "pause",
+      "waitTime": "3000"
     },
     {
       "type": "setElementText",
